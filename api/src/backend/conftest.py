@@ -15,6 +15,7 @@ from tasks.jobs.backfill import backfill_resource_scan_summaries
 from api.db_utils import rls_transaction
 from api.models import (
     ComplianceOverview,
+    ComplianceRequirementOverview,
     Finding,
     Integration,
     IntegrationProviderRelationship,
@@ -29,6 +30,7 @@ from api.models import (
     Scan,
     ScanSummary,
     StateChoices,
+    StatusChoices,
     Task,
     User,
     UserRoleRelationship,
@@ -777,6 +779,114 @@ def compliance_overviews_fixture(scans_fixture, tenants_fixture):
     return compliance_overview1, compliance_overview2
 
 
+@pytest.fixture
+def compliance_requirements_overviews_fixture(scans_fixture, tenants_fixture):
+    """Fixture for ComplianceRequirementOverview objects used by the new ComplianceOverviewViewSet."""
+    tenant = tenants_fixture[0]
+    scan1, scan2, scan3 = scans_fixture
+
+    # Create ComplianceRequirementOverview objects for scan1
+    requirement_overview1 = ComplianceRequirementOverview.objects.create(
+        tenant=tenant,
+        scan=scan1,
+        compliance_id="aws_account_security_onboarding_aws",
+        framework="AWS-Account-Security-Onboarding",
+        version="1.0",
+        description="Description for AWS Account Security Onboarding",
+        region="eu-west-1",
+        requirement_id="requirement1",
+        requirement_status=StatusChoices.PASS,
+        passed_checks=2,
+        failed_checks=0,
+        total_checks=2,
+    )
+
+    requirement_overview2 = ComplianceRequirementOverview.objects.create(
+        tenant=tenant,
+        scan=scan1,
+        compliance_id="aws_account_security_onboarding_aws",
+        framework="AWS-Account-Security-Onboarding",
+        version="1.0",
+        description="Description for AWS Account Security Onboarding",
+        region="eu-west-1",
+        requirement_id="requirement2",
+        requirement_status=StatusChoices.PASS,
+        passed_checks=2,
+        failed_checks=0,
+        total_checks=2,
+    )
+
+    requirement_overview3 = ComplianceRequirementOverview.objects.create(
+        tenant=tenant,
+        scan=scan1,
+        compliance_id="aws_account_security_onboarding_aws",
+        framework="AWS-Account-Security-Onboarding",
+        version="1.0",
+        description="Description for AWS Account Security Onboarding",
+        region="eu-west-2",
+        requirement_id="requirement1",
+        requirement_status=StatusChoices.PASS,
+        passed_checks=2,
+        failed_checks=0,
+        total_checks=2,
+    )
+
+    requirement_overview4 = ComplianceRequirementOverview.objects.create(
+        tenant=tenant,
+        scan=scan1,
+        compliance_id="aws_account_security_onboarding_aws",
+        framework="AWS-Account-Security-Onboarding",
+        version="1.0",
+        description="Description for AWS Account Security Onboarding",
+        region="eu-west-2",
+        requirement_id="requirement2",
+        requirement_status=StatusChoices.FAIL,
+        passed_checks=1,
+        failed_checks=1,
+        total_checks=2,
+    )
+
+    requirement_overview5 = ComplianceRequirementOverview.objects.create(
+        tenant=tenant,
+        scan=scan1,
+        compliance_id="aws_account_security_onboarding_aws",
+        framework="AWS-Account-Security-Onboarding",
+        version="1.0",
+        description="Description for AWS Account Security Onboarding (MANUAL)",
+        region="eu-west-2",
+        requirement_id="requirement3",
+        requirement_status=StatusChoices.MANUAL,
+        passed_checks=0,
+        failed_checks=0,
+        total_checks=0,
+    )
+
+    # Create a different compliance framework for testing
+    requirement_overview6 = ComplianceRequirementOverview.objects.create(
+        tenant=tenant,
+        scan=scan1,
+        compliance_id="cis_1.4_aws",
+        framework="CIS-1.4-AWS",
+        version="1.4",
+        description="CIS AWS Foundations Benchmark v1.4.0",
+        region="eu-west-1",
+        requirement_id="cis_requirement1",
+        requirement_status=StatusChoices.FAIL,
+        passed_checks=0,
+        failed_checks=3,
+        total_checks=3,
+    )
+
+    return (
+        requirement_overview1,
+        requirement_overview2,
+        requirement_overview3,
+        requirement_overview4,
+        requirement_overview5,
+        requirement_overview6,
+    )
+
+
 def get_api_tokens(
     api_client, user_email: str, user_password: str, tenant_id: str = None
 ) -> tuple[str, str]:
@@ -927,6 +1037,47 @@ def backfill_scan_metadata_fixture(scans_fixture, findings_fixture):
         tenant_id = scan_instance.tenant_id
         scan_id = scan_instance.id
         backfill_resource_scan_summaries(tenant_id=tenant_id, scan_id=scan_id)
+
+
+@pytest.fixture(scope="function")
+def latest_scan_finding(authenticated_client, providers_fixture, resources_fixture):
+    provider = providers_fixture[0]
+    tenant_id = str(providers_fixture[0].tenant_id)
+    resource = resources_fixture[0]
+    scan = Scan.objects.create(
+        name="latest completed scan",
+        provider=provider,
+        trigger=Scan.TriggerChoices.MANUAL,
+        state=StateChoices.COMPLETED,
+        tenant_id=tenant_id,
+    )
+    finding = Finding.objects.create(
+        tenant_id=tenant_id,
+        uid="test_finding_uid_1",
+        scan=scan,
+        delta="new",
+        status=Status.FAIL,
+        status_extended="test status extended ",
+        impact=Severity.critical,
+        impact_extended="test impact extended one",
+        severity=Severity.critical,
+        raw_result={
+            "status": Status.FAIL,
+            "impact": Severity.critical,
+            "severity": Severity.critical,
+        },
+        tags={"test": "dev-qa"},
+        check_id="test_check_id",
+        check_metadata={
+            "CheckId": "test_check_id",
+            "Description": "test description apple sauce",
+        },
+        first_seen_at="2024-01-02T00:00:00Z",
+    )
+
+    finding.add_resources([resource])
+    backfill_resource_scan_summaries(tenant_id, str(scan.id))
+    return finding
 
 
 def get_authorization_header(access_token: str) -> dict:

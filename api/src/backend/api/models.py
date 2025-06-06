@@ -218,9 +218,13 @@ class Provider(RowLevelSecurityProtectedModel):
 
     @staticmethod
     def validate_m365_uid(value):
-        if not re.match(r"^[a-zA-Z0-9-]+\.onmicrosoft\.com$", value):
+        if not re.match(
+            r"""^(?!-)[A-Za-z0-9](?:[A-Za-z0-9-]{0,61}[A-Za-z0-9])?(?:\.(?!-)[A-Za-z0-9]"""
+            r"""(?:[A-Za-z0-9-]{0,61}[A-Za-z0-9])?)*\.[A-Za-z]{2,}$""",
+            value,
+        ):
             raise ModelValidationError(
-                detail="M365 tenant ID must be a valid domain.",
+                detail="M365 domain ID must be a valid domain.",
                 code="m365-uid",
                 pointer="/data/attributes/uid",
             )
@@ -238,7 +242,7 @@ class Provider(RowLevelSecurityProtectedModel):
     @staticmethod
     def validate_kubernetes_uid(value):
         if not re.match(
-            r"^[a-z0-9][A-Za-z0-9_.:\/-]{1,250}$",
+            r"^[a-zA-Z0-9][a-zA-Z0-9._@:\/-]{1,250}$",
             value,
         ):
             raise ModelValidationError(
@@ -426,6 +430,7 @@ class Scan(RowLevelSecurityProtectedModel):
         PeriodicTask, on_delete=models.CASCADE, null=True, blank=True
     )
     output_location = models.CharField(blank=True, null=True, max_length=200)
+
     # TODO: mutelist foreign key
 
     class Meta(RowLevelSecurityProtectedModel.Meta):
@@ -750,9 +755,17 @@ class Finding(PostgresPartitionedModel, RowLevelSecurityProtectedModel):
                 condition=Q(delta="new"),
                 name="find_delta_new_idx",
             ),
+            models.Index(
+                fields=["tenant_id", "uid", "-inserted_at"],
+                name="find_tenant_uid_inserted_idx",
+            ),
             GinIndex(fields=["resource_services"], name="gin_find_service_idx"),
             GinIndex(fields=["resource_regions"], name="gin_find_region_idx"),
             GinIndex(fields=["resource_types"], name="gin_find_rtype_idx"),
+            models.Index(
+                fields=["tenant_id", "scan_id", "check_id"],
+                name="find_tenant_scan_check_idx",
+            ),
         ]
 
     class JSONAPIMeta:
@@ -841,6 +854,7 @@ class ProviderSecret(RowLevelSecurityProtectedModel):
     class TypeChoices(models.TextChoices):
         STATIC = "static", _("Key-value pairs")
         ROLE = "role", _("Role assumption")
+        SERVICE_ACCOUNT = "service_account", _("GCP Service Account Key")
 
     id = models.UUIDField(primary_key=True, default=uuid4, editable=False)
     inserted_at = models.DateTimeField(auto_now_add=True, editable=False)
@@ -1131,6 +1145,78 @@ class ComplianceOverview(RowLevelSecurityProtectedModel):
 
     class JSONAPIMeta:
         resource_name = "compliance-overviews"
+
+
+class ComplianceRequirementOverview(RowLevelSecurityProtectedModel):
+    id = models.UUIDField(primary_key=True, default=uuid4, editable=False)
+    inserted_at = models.DateTimeField(auto_now_add=True, editable=False)
+    compliance_id = models.TextField(blank=False)
+    framework = models.TextField(blank=False)
+    version = models.TextField(blank=True)
+    description = models.TextField(blank=True)
+    region = models.TextField(blank=False)
+
+    requirement_id = models.TextField(blank=False)
+    requirement_status = StatusEnumField(choices=StatusChoices)
+    passed_checks = models.IntegerField(default=0)
+    failed_checks = models.IntegerField(default=0)
+    total_checks = models.IntegerField(default=0)
+
+    scan = models.ForeignKey(
+        Scan,
+        on_delete=models.CASCADE,
+        related_name="compliance_requirements_overviews",
+        related_query_name="compliance_requirements_overview",
+    )
+
+    class Meta(RowLevelSecurityProtectedModel.Meta):
+        db_table = "compliance_requirements_overviews"
+
+        constraints = [
+            models.UniqueConstraint(
+                fields=(
+                    "tenant_id",
+                    "scan_id",
+                    "compliance_id",
+                    "requirement_id",
+                    "region",
+                ),
+                name="unique_tenant_compliance_requirement_overview",
+            ),
+            RowLevelSecurityConstraint(
+                field="tenant_id",
+                name="rls_on_%(class)s",
+                statements=["SELECT", "INSERT", "DELETE"],
+            ),
+        ]
+        indexes = [
+            models.Index(fields=["tenant_id", "scan_id"], name="cro_tenant_scan_idx"),
+            models.Index(
+                fields=["tenant_id", "scan_id", "compliance_id"],
+                name="cro_scan_comp_idx",
+            ),
+            models.Index(
+                fields=["tenant_id", "scan_id", "compliance_id", "region"],
+                name="cro_scan_comp_reg_idx",
+            ),
+            models.Index(
+                fields=["tenant_id", "scan_id", "compliance_id", "requirement_id"],
+                name="cro_scan_comp_req_idx",
+            ),
+            models.Index(
+                fields=[
+                    "tenant_id",
+                    "scan_id",
+                    "compliance_id",
+                    "requirement_id",
+                    "region",
+                ],
+                name="cro_scan_comp_req_reg_idx",
+            ),
+        ]
+
+    class JSONAPIMeta:
+        resource_name = "compliance-requirements-overviews"
 
 
 class ScanSummary(RowLevelSecurityProtectedModel):
