@@ -167,6 +167,21 @@ jobs:
         run: |
           poetry run pytest -n auto --cov=./prowler/providers/kubernetes --cov-report=xml:kubernetes_coverage.xml tests/providers/kubernetes
 
+      # Test GitHub
+      - name: GitHub - Check if any file has changed
+        id: github-changed-files
+        uses: tj-actions/changed-files@ed68ef82c095e0d48ec87eccea555d944a631a4c # v46.0.5
+        with:
+          files: |
+            ./prowler/providers/github/**
+            ./tests/providers/github/**
+            .poetry.lock
+
+      - name: GitHub - Test
+        if: steps.github-changed-files.outputs.any_changed == 'true'
+        run: |
+          poetry run pytest -n auto --cov=./prowler/providers/github --cov-report=xml:github_coverage.xml tests/providers/github
+
       # Test NHN
       - name: NHN - Check if any file has changed
         id: nhn-changed-files
@@ -211,9 +226,9 @@ jobs:
       # Codecov
       - name: Upload coverage reports to Codecov
         if: steps.are-non-ignored-files-changed.outputs.any_changed == 'true'
-        uses: codecov/codecov-action@ad3126e916f78f00edff4ed0317cf185271ccc2d # v5.4.2
+        uses: codecov/codecov-action@18283e04ce6e62d37312384ff67231eb8fd56d24 # v5.4.3
         env:
           CODECOV_TOKEN: ${{ secrets.CODECOV_TOKEN }}
         with:
           flags: prowler
-          files: ./aws_coverage.xml,./azure_coverage.xml,./gcp_coverage.xml,./kubernetes_coverage.xml,./nhn_coverage.xml,./m365_coverage.xml,./lib_coverage.xml,./config_coverage.xml
+          files: ./aws_coverage.xml,./azure_coverage.xml,./gcp_coverage.xml,./kubernetes_coverage.xml,./github_coverage.xml,./nhn_coverage.xml,./m365_coverage.xml,./lib_coverage.xml,./config_coverage.xml

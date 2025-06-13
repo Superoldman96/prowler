@@ -3,8 +3,9 @@
 import {
   AlertCircle,
   Bookmark,
-  Boxes,
+  // Bot,
   CloudCog,
+  // Cog,
   Group,
   LayoutGrid,
   Mail,
@@ -26,6 +27,7 @@ import {
   CircleHelpIcon,
   DocIcon,
   GCPIcon,
+  KubernetesIcon,
   M365Icon,
   SupportIcon,
 } from "@/components/icons/Icons";
@@ -108,7 +110,7 @@ export const getMenuList = (pathname: string): GroupProps[] => {
             {
               href: "/findings?filter[status__in]=FAIL&filter[severity__in]=critical%2Chigh%2Cmedium&filter[provider_type__in]=kubernetes&sort=severity,-inserted_at",
               label: "Kubernetes",
-              icon: Boxes,
+              icon: KubernetesIcon,
             },
           ],
           defaultOpen: false,
@@ -133,6 +135,7 @@ export const getMenuList = (pathname: string): GroupProps[] => {
             { href: "/manage-groups", label: "Provider Groups", icon: Group },
             { href: "/scans", label: "Scan Jobs", icon: Timer },
             { href: "/roles", label: "Roles", icon: UserCog },
+            // { href: "/lighthouse/config", label: "Lighthouse", icon: Cog },
           ],
           defaultOpen: true,
         },
@@ -153,6 +156,16 @@ export const getMenuList = (pathname: string): GroupProps[] => {
         },
       ],
     },
+    // {
+    //   groupLabel: "Prowler Lighthouse",
+    //   menus: [
+    //     {
+    //       href: "/lighthouse",
+    //       label: "Lighthouse",
+    //       icon: Bot,
+    //     },
+    //   ],
+    // },
     {
       groupLabel: "",
       menus: [
