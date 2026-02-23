@@ -51,6 +51,10 @@ All notable changes to the **Prowler SDK** are documented in this file.
 - Update Azure Virtual Machines service metadata to new format [(#9629)](https://github.com/prowler-cloud/prowler/pull/9629)
 - Cloudflare provider credential validation with specific exceptions [(#9910)](https://github.com/prowler-cloud/prowler/pull/9910)
 
+### 🐞 Fixed
+
+- Update AWS checks metadata URLs to replace deprecated Trend Micro CloudOne Conformity (EOL July 2026) with Vision One and remove docs.prowler.com references [(#10068)](https://github.com/prowler-cloud/prowler/pull/10068)
+
 ### 🔐 Security
 
 - Bumped `py-ocsf-models` to 0.8.1 and `cryptography` to 44.0.3 [(#10059)](https://github.com/prowler-cloud/prowler/pull/10059)
